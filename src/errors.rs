@@ -43,6 +43,12 @@ fn parse_positive(input: &str) -> Result<f64, ParseError> {
         return Err(ParseError::Empty);
     }
 
+    // This part is quite interesting.
+    // basically parse() already returns Result<f64, ParseFloatError>
+    // but we want to add some context to the error.
+    // so we intercept that error and return our own.
+    // This is done with map_err, we basically remove the parse generic error type
+    // we do this by |_| piping with an unused param, and returning the own error.
     // str::parse returns Result<f64, ParseFloatError>
     // .map_err transforms the error type (like .catch(e => new MyError(e)))
     let number: f64 = trimmed
@@ -51,6 +57,10 @@ fn parse_positive(input: &str) -> Result<f64, ParseError> {
     //                                                             ^ the ? operator
     // ? = "if Err, return early with that error; if Ok, unwrap the value"
     // It's like:  if (result.isErr()) return result;  but built into the language
+
+    // Another interesting part, is the ?
+    // Its quite cool, because it contains the early return of the function.
+    // Makes it quite explicit that the function can return early so easily already with the error.
 
     if number < 0.0 {
         return Err(ParseError::Negative(number));
@@ -85,7 +95,11 @@ fn parse_and_double(input: &str) -> Result<f64, ParseError> {
 // Sometimes you have Option but need Result (to add error context)
 fn first_above_or_error(values: &[f64], threshold: f64) -> Result<f64, String> {
     // .ok_or() converts None → Err, Some → Ok
-    first_above(values, threshold).ok_or(format!("no value above {threshold}"))
+    let val_or_none = first_above(values, threshold);
+    val_or_none.ok_or(format!("no value above {threshold}"))
+    // why format! and not just format. Ok is macro. This parses the string:
+    // "no value above" and then parses the argument {threshold}. This code can be checked by the compiler
+    // So it doesnt fail at runtime.
 }
 
 #[cfg(test)]
@@ -157,6 +171,26 @@ mod tests {
     }
 
     // --- Option<T> ---
+
+    // Option and Result answer different questions:
+
+    //- Some(5.0) — "Was there a value?" Yes/no, that's it. None means absence, no explanation needed.
+    //- Ok(5.0) — "Did the operation succeed?" If not, Err(...) carries why it failed.
+
+    //In your code, first_above returns Option<f64> — it just searches.
+    //No value found? None. The caller doesn't need to know why.
+    // Basically runs an operation with or without a result that I can use, is up to the caller to decide what to do with None.
+
+    // first_above_or_error wraps that with .ok_or(...)
+    // to convert None --> Err("no value above 100")
+    // now the caller knows what went wrong.
+
+    // The practical difference: None is a dead end for diagnostics.
+    // Err(msg) propagates context upward (especially with ?),
+    // so callers higher in the stack can log, retry, or show a useful message.
+
+    // Rule of thumb: use Option when absence is normal/expected,
+    // Result when absence is a problem the caller should handle or report.
 
     #[test]
     fn find_above_some() {
