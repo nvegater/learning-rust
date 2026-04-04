@@ -34,6 +34,7 @@ enum Shape {
     Circle { radius: f64 },
     Rectangle { width: f64, height: f64 },
     Triangle { base: f64, height: f64 },
+    Pentagon { base: f64, height: f64 },
 }
 
 // -- Traits --
@@ -52,6 +53,7 @@ impl Shape {
             Shape::Circle { radius } => std::f64::consts::PI * radius * radius,
             Shape::Rectangle { width, height } => width * height,
             Shape::Triangle { base, height } => 0.5 * base * height,
+            Shape::Pentagon { base, height } => (1.0 + std::f64::consts::SQRT_2) * base * height,
         }
     }
 }
@@ -68,6 +70,9 @@ impl Describable for Shape {
             }
             Shape::Triangle { base, height } => {
                 format!("Triangle base={base} height={height}")
+            }
+            Shape::Pentagon { base, height } => {
+                format!("Pentagon base={base} height={height}")
             }
         }
     }
@@ -105,6 +110,8 @@ mod tests {
         let origin = Point::new(0.0, 0.0);
         let p = Point::new(3.0, 4.0);
         // Classic 3-4-5 triangle
+        // So origin would be self.
+        // and p would be other.
         assert!((origin.distance_to(&p) - 5.0).abs() < f64::EPSILON);
     }
 
