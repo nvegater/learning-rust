@@ -12,8 +12,9 @@ pub fn my_own_string_length(owned_string: String) -> usize {
 /// Demonstrates "borrowing".
 /// The `&` means we borrow a reference — the caller keeps ownership.
 /// (Like letting someone look at your laptop screen.)
-pub fn borrowed_string_length(borrowed_reference_to_string: &String) -> usize { borrowed_reference_to_string.len() }
-
+pub fn borrowed_string_length(borrowed_reference_to_string: &String) -> usize {
+    borrowed_reference_to_string.len()
+}
 
 /// Demonstrates "mutable borrowing".
 /// `&mut` lets us modify the value without taking ownership.
@@ -77,7 +78,6 @@ mod tests {
         // Because the compiler knows that S is no longer used after it's been borrowed.
         // The difference is that Rust enforces this at COMPILE TIME, not runtime.
         // Javascript and other languages need to constantly check for memory leaks and clean them up.
-
     }
 
     #[test]
@@ -92,7 +92,6 @@ mod tests {
         let s = String::from("hello");
         let new_word = append_world_functional(s);
         assert_eq!(new_word, "hello, world!");
-
     }
 
     #[test]

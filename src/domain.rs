@@ -34,7 +34,7 @@ enum Shape {
     Circle { radius: f64 },
     Rectangle { width: f64, height: f64 },
     Triangle { base: f64, height: f64 },
-    Pentagon { base: f64, height: f64 },
+    Pentagon { side: f64 },
 }
 
 // -- Traits --
@@ -53,7 +53,9 @@ impl Shape {
             Shape::Circle { radius } => std::f64::consts::PI * radius * radius,
             Shape::Rectangle { width, height } => width * height,
             Shape::Triangle { base, height } => 0.5 * base * height,
-            Shape::Pentagon { base, height } => (1.0 + std::f64::consts::SQRT_2) * base * height,
+            Shape::Pentagon { side } => {
+                (side * side / 4.0) * (5.0 * (5.0 + 2.0 * 5.0_f64.sqrt())).sqrt()
+            }
         }
     }
 }
@@ -71,8 +73,8 @@ impl Describable for Shape {
             Shape::Triangle { base, height } => {
                 format!("Triangle base={base} height={height}")
             }
-            Shape::Pentagon { base, height } => {
-                format!("Pentagon base={base} height={height}")
+            Shape::Pentagon { side } => {
+                format!("Pentagon side={side}")
             }
         }
     }
@@ -164,14 +166,16 @@ mod tests {
         };
         let point = Point::new(1.0, 2.0);
 
-        assert_eq!(
-            print_description(&shape),
-            "Description: Rectangle 5x3"
-        );
-        assert_eq!(
-            print_description(&point),
-            "Description: Point(1, 2)"
-        );
+        assert_eq!(print_description(&shape), "Description: Rectangle 5x3");
+        assert_eq!(print_description(&point), "Description: Point(1, 2)");
+    }
+
+    #[test]
+    fn pentagon_area() {
+        let p = Shape::Pentagon { side: 5.0 };
+        // A = (s² / 4) * √(5(5 + 2√5))
+        let expected = (25.0 / 4.0) * (5.0 * (5.0 + 2.0 * 5.0_f64.sqrt())).sqrt();
+        assert!((p.area() - expected).abs() < f64::EPSILON);
     }
 
     // --- Pattern matching exhaustiveness ---

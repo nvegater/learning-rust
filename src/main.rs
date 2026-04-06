@@ -1,31 +1,10 @@
 mod domain;
 mod errors;
+mod handlers;
 mod ownership;
 
-use axum::{Router, routing::get, Json};
-use serde::Serialize;
-
-// -- Handlers (like Express route handlers) --
-
-// In TS: `(req, res) => res.json({ message: "Hello" })`
-// In Axum: return type IS the response. No `res` object.
-async fn health() -> &'static str {
-    "ok"
-}
-
-// Axum sees `Json<T>` return → sets Content-Type: application/json automatically
-#[derive(Serialize)]
-struct HelloResponse {
-    message: String,
-}
-
-async fn hello() -> Json<HelloResponse> {
-    Json(HelloResponse {
-        message: "Hello from Rust!".to_string(),
-    })
-}
-
-// -- App builder (extract so tests can reuse it) --
+use axum::{Router, routing::get};
+use handlers::{health, hello};
 
 fn app() -> Router {
     Router::new()
@@ -57,13 +36,32 @@ mod tests {
     use tower::ServiceExt; // for `oneshot`
 
     // In TS you'd use supertest. In Axum, you call the router directly — no server needed.
+    //
+    // ⏺ That line is doing 5 things that TS does in one (res.body):
+    //
+    // response.into_body()   // 1. Take ownership of the body stream (move semantics — no GC)
+    // .collect()         // 2. Start collecting the stream chunks into memory
+    // .await             // 3. It's async — wait for all chunks to arrive
+    // .unwrap()          // 4. Collecting can fail — handle the Result
+    // .to_bytes()        // 5. Convert the collected data into a byte buffer
+    //
+    // Why each step exists:
+    //
+    // - .into_body() — Rust separates headers from body. The body is a stream (like a Node ReadableStream), not a buffered string. into_ means it consumes the response — ownership moves, no copy.
+    // - .collect() — Streams don't buffer by default. In Node, res.body is already buffered for you. Here you explicitly say "read the whole stream into memory." This is the http_body_util::BodyExt trait you imported.
+    // - .await — Same as TS. Reading from a stream is async I/O.
+    // - .unwrap() — The collect can fail (connection drops, malformed chunks). In TS this would throw. Rust returns Result<T, E> — .unwrap() says "panic if it failed" (fine in tests).
+    // - .to_bytes() — Converts to a contiguous Bytes buffer you can compare against.
+    //
+    // The core difference: In Node, the runtime silently buffers the entire response body into memory for you. Rust refuses to do that implicitly because in production, streaming a 2GB response without buffering is the correct default. You pay for what you use.
+    //
 
     #[tokio::test]
     async fn test_health() {
-        let response = app()
-            .oneshot(Request::builder().uri("/health").body(Body::empty()).unwrap())
-            .await
-            .unwrap();
+        let empty_body = Body::empty();
+        let test_request = Request::builder().uri("/health").body(empty_body).unwrap();
+        // the curl equivalent: `curl http://localhost:3000/health`
+        let response = app().oneshot(test_request).await.unwrap();
 
         assert_eq!(response.status(), StatusCode::OK);
 
@@ -73,10 +71,9 @@ mod tests {
 
     #[tokio::test]
     async fn test_hello_json() {
-        let response = app()
-            .oneshot(Request::builder().uri("/hello").body(Body::empty()).unwrap())
-            .await
-            .unwrap();
+        let empty_body = Body::empty();
+        let test_request = Request::builder().uri("/hello").body(empty_body).unwrap();
+        let response = app().oneshot(test_request).await.unwrap();
 
         assert_eq!(response.status(), StatusCode::OK);
 
